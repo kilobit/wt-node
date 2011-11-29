@@ -1,0 +1,136 @@
+// router.js
+
+var url = require("url");
+var logger = require("./logger");
+
+var router = {};
+
+(function(){
+
+    router.routes = {};
+
+    router.setDefaultHandler = function(handler) {
+	this.default_handler = handler;
+    }
+
+    router.setDefaultRouteHandler = function(path, handler) {
+	
+	// Get existing route entries or create new ones.
+	var route = (this.routes[path]) ? this.routes[path] : {};
+
+	// Set the default handler on the route.
+	route.default_handler = handler;
+	
+	// Add the route to the routes.
+	this.routes[path] = route;
+    }
+
+    router.setHandler = function(method, path, handler) {
+	
+	// Get existing route entries or create new ones.
+	var route = (this.routes[path]) ? this.routes[path] : {};
+	var handlers = (route.handlers) ? route.handlers : {};
+
+	// Pre Compile the regex
+	if(typeof(route.re === 'undefined')) {route.re = new RegExp(path);}
+
+	// Set the handler on the route
+	handlers[method.toUpperCase()] = handler;
+	route.handlers = handlers;
+
+	// Add the route to the routes.
+	this.routes[path] = route;
+    }
+
+    router.setRoutes = function(routes) {
+	this.routes = routes;
+    }
+
+    // Convenience methods for setting handlers.
+    router.get		= function(path, handler) { return this.setHandler('GET', path, handler); }
+    router.post		= function(path, handler) { return this.setHandler('POST', path, handler); }
+    router.put		= function(path, handler) { return this.setHandler('PUT', path, handler); }
+    router.delete	= function(path, handler) { return this.setHandler('DELETE', path, handler); }
+    router.options	= function(path, handler) { return this.setHandler('OPTIONS', path, handler); }
+    router.head		= function(path, handler) { return this.setHandler('HEAD', path, handler); }
+
+    // Route requests based on the routes list.
+    router.route = function(request, response) {
+
+	console.dir(this.routes);
+
+	// Parse the request uri
+	uri = url.parse(request.url);
+
+	// Loop over the routes
+	for(var route in this.routes) {
+	    
+	    // Check for a match.
+	    match = this.routes[route].re.exec(uri.pathname);
+	    if(match) {
+
+		// Get the method handler
+		console.log("Method: " + request.method);
+		method = this.routes[route].handlers && this.routes[route].handlers[request.method.toUpperCase()];
+		if(method) {
+
+		    // Pass control to the routed method.
+		    return method(request, response);
+		}
+
+		// Try the default route handler
+		if(typeof(this.routes[route].default_handler) === 'function') {
+		    this.routes[route].default_handler(request, response);
+		}
+	    }
+	}
+
+	// Try the default handler
+	console.log(typeof(this.default_handler));
+	if(typeof(this.default_handler) === 'function') {
+	    return this.default_handler(request, response);
+	}
+
+	// No match, no default handler.
+	response.writeHead(500, {'Content-Type': 'text/plain'});
+	response.end('Failed to route!\n' + request.url);
+    }
+
+    NotFoundHandler = function(request, response) {
+	
+	response.writeHead(500, {'Content-Type': 'text/html'});
+
+	response.write("<html>\n\t<head>\n\t<title>404 Not Found</title>\n\t</head>\n");
+	response.write("<body>\n\t<h1>Not Found</h1>\n\t" + 
+		       "<p>The resource you requested, " + request.url +
+		       ", was not found on this server.<\p>\n</body>");
+
+	response.end();
+    }
+
+    router.setDefaultHandler(NotFoundHandler);
+
+})();
+
+console.log(router);
+
+for(var name in router) {
+    exports[name] = router[name];
+}
+
+//Object.prototype.foo = 'bar';
+
+// Object.defineProperty(Object.prototype, "extend", {
+//     enumerable: false,
+//     value: function(from) {
+//         var props = Object.getOwnPropertyNames(from);
+//         var dest = this;
+//         props.forEach(function(name) {
+//             if (name in dest) {
+//                 var destination = Object.getOwnPropertyDescriptor(from, name);
+//                 Object.defineProperty(dest, name, destination);
+//             }
+//         });
+//         return this;
+//     }
+// });

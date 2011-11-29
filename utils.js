@@ -1,0 +1,91 @@
+// utils.js
+
+var logger = require("./logger");
+var sys = require("sys");
+
+if(!Object.prototype.hasOwnProperty('create')) {
+    Object.defineProperty(Object.prototype, "create", {
+	enumerable: false,
+	value: function(o) {
+	    var F = function() {};
+	    F.prototype = o;
+	    return new F();
+	}
+    });
+}
+
+if(!Object.prototype.hasOwnProperty('extend')) {
+    Object.defineProperty(Object.prototype, "extend", {
+	enumerable: false,
+	value: function(from) {
+	    if(typeof from !== 'object') { return this; }
+	    for(var prop in from) {
+		this[prop] = from[prop];
+	    }
+
+	    return this;
+	}
+    });
+}
+
+function loadBody(request, callback) {
+    
+    var body = typeof(request.body) !== 'undefined' ? request.body : "";
+    request.on('data', function (data) {
+	body += data;
+    });
+
+    request.on('end', function() {
+	request.body = body;
+	callback(body);
+    });
+}
+
+var parsers = {'application/json': function(data) { return JSON.parse(data); }};
+
+function parseBody(request, callback) {
+    
+    loadBody(request, function(body) {
+	
+	var content_type = (typeof(request.headers["content-type"]) !== 'undefined') ? request.headers["content-type"] : 'text/plain';
+
+	var parser = parsers[content_type];
+	if(typeof(parser) === 'function') {
+	    logger.debug("Parsing: " + body);
+
+	    try {
+		request.body = parser(body);
+	    }
+	    catch(e) {
+		logger.error("utils.js (" + request.connection.remoteAddress + 
+			     "): Error while parsing body: " + e.name + ": " + 
+			     e.message + ":\n" + body);
+		callback(e, null);
+	    }
+	    callback(null, request.body);
+	}
+	else {
+	    callback(null, body);
+	}
+    });
+}
+
+function error(response, code, reason, message) {
+
+    var c = (typeof(code) !== 'undefined') ? code : 500;
+    var r = (typeof(reason) !== 'undefined') ? reason : "Internal Server Error";
+
+    response.writeHead(c, r, {'Content-Type': 'text/html'});
+
+    response.write("<html>\n<head>\n\t<title>" + c + " " + r + "</title>\n</head>\n");
+    response.write("<body>\n\t<h1>" + c + " " + r + "</h1>\n");
+    response.write("\t<p>" + message + "</p>\n</body>\n<html>");
+
+    response.end();
+
+    logger.msg("Returned Error: " + c + " - " + r + " - " + message);
+}
+
+exports.loadBody = loadBody;
+exports.parseBody = parseBody;
+exports.error = error;

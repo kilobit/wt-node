@@ -1,0 +1,15 @@
+{
+  "author": "Christian Saunders (https://github.com/kilobit)",
+  "name": "wt",
+  "description": "The node.js wt (web tools) library.",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/kilobit/wt-node.git"
+  },
+  "engines": {
+    "node": "~v0.5.4"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

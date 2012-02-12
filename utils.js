@@ -17,7 +17,6 @@
 // utils.js
 
 var logger = require("./logger");
-var sys = require("sys");
 
 if(!Object.prototype.hasOwnProperty('create')) {
     Object.defineProperty(Object.prototype, "create", {

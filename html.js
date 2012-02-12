@@ -17,7 +17,6 @@
 // html.js
 
 var logger = require("./logger");
-var sys = require("sys");
 var jsdom = require("jsdom").jsdom;
 
 var jquery = null;

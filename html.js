@@ -39,11 +39,12 @@ function withJQuery(html, callback) {
 }
 
 function getJQueryWindow(html) {
-    jquery = require('./jquery');
 
     document = jsdom(html, null, null);
     window = document.createWindow();
-    jquery.init(window);
+    jsdom.jQueryify(window, function() {console.log(window.$)});
+
+    console.log(window.$);
 
     return window;
 }
@@ -57,25 +58,36 @@ var attr_defaults = { type: 'text' };
 
 function generateHTMLForm(values, attrs, window) {
 
-    var window = (window) ? window : getJQueryWindow();
-    window = (window.jQuery) ? window : getJQueryWindow();
-    var $ = window.jQuery;
+    var document = window && window.document || jsdom();
+
+    window = window || document.createWindow();
 
     var attributes = form_defaults.extend(attrs);
 
-    var form = $('<form>').attr({id: attributes.id,
-			       action: attributes.action,
-			       method: attributes.method});
+    var form = document.createElement('form');
+    
+    form.id = attributes.id;
+    form.action = attributes.action;
+    form.method = attributes.method;
 
     for(var name in values) {
+
 	var kvs = {'name': name, 'value': values[name]}.extend(attr_defaults);
-	var input = $('<input>').attr(kvs);
-	form.append(input);
+
+	var input = document.createElement("input");
+
+	for(var attr in kvs) {
+	    input.setAttribute(attr, kvs[attr]);
+	}
+
+	form.appendChild(input);
     }
 
-    logger.debug('Form Generated: ' + form[0].outerHTML);
+    logger.debug('Form Generated: ' + form.outerHTML);
 
-    return form[0];
+    return form;    
+    
+
 }
 
 exports.withJQuery = withJQuery;

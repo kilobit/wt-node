@@ -73,8 +73,7 @@ var router = {};
     // Route requests based on the routes list.
     router.route = function(request, response) {
 
-	console.dir(this.routes);
-
+	
 	// Parse the request uri
 	uri = url.parse(request.url);
 

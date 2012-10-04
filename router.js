@@ -64,14 +64,14 @@ var router = {};
 
     // Convenience methods for setting handlers.
     router.get		= function(path, handler) { return this.setHandler('GET', path, handler); }
-    router.post		= function(path, handler) { return this.setHandler('POST', path, handler); }
+    router.post		= function(path, handler, data) { return this.setHandler('POST', path, handler); }
     router.put		= function(path, handler) { return this.setHandler('PUT', path, handler); }
     router.delete	= function(path, handler) { return this.setHandler('DELETE', path, handler); }
     router.options	= function(path, handler) { return this.setHandler('OPTIONS', path, handler); }
     router.head		= function(path, handler) { return this.setHandler('HEAD', path, handler); }
 
     // Route requests based on the routes list.
-    router.route = function(request, response) {
+    router.route = function(request, response, data) {
 
 	
 	// Parse the request uri
@@ -83,14 +83,12 @@ var router = {};
 	    // Check for a match.
 	    match = this.routes[route].re.exec(uri.pathname);
 	    if(match) {
-
 		// Get the method handler
-		console.log("Method: " + request.method);
+		//console.log("Method: " + request.method);
 		method = this.routes[route].handlers && this.routes[route].handlers[request.method.toUpperCase()];
 		if(method) {
-
 		    // Pass control to the routed method.
-		    return method(request, response);
+		    return method(request, response, data);
 		}
 
 		// Try the default route handler
@@ -101,7 +99,7 @@ var router = {};
 	}
 
 	// Try the default handler
-	console.log(typeof(this.default_handler));
+	//console.log(typeof(this.default_handler));
 	if(typeof(this.default_handler) === 'function') {
 	    return this.default_handler(request, response);
 	}
@@ -127,7 +125,7 @@ var router = {};
 
 })();
 
-console.log(router);
+//console.log(router);
 
 for(var name in router) {
     exports[name] = router[name];

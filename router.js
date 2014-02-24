@@ -85,7 +85,12 @@ var router = {};
 	};
 
     router.parsePostData = function(request, response, data, next) {
+		if (!request.wt) {
+			request.wt = {};
+		}
+
 		if (request.method == "GET") {
+			request.wt.data = {};
 			return next();
 		}
 		var postData = "";
@@ -96,10 +101,12 @@ var router = {};
 		request.on("end", function() {
 			// Pass control to the routed method.
 			if (postData.match(/<(.*)>(.*)<\/(.*)>/)) {
-				return routeMethod(request, response, postData);
+				request.wt.data = postData;
+				return next();
+				// return routeMethod(request, response, postData);
 			}
 			data = qsparser.parse(postData);
-			request.data = data;
+			request.wt.data = data;
 			return next();
 		});
     };
@@ -110,8 +117,11 @@ var router = {};
 			params[key] = value;
 		});
 
-		request.query = params;
-		data = data;
+		if(!request.wt) {
+			request.wt = {};
+		}
+
+		request.wt.query = params;
 		return next();
 	};
 

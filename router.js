@@ -43,6 +43,10 @@ var router = {};
 	this.routes[path] = route;
     }
 
+
+    router.clearPrerunChain = function () {
+    	router.prerunChain = [];
+    }
     router.addPreHandling = function(fname) {
     	router.prerunChain.push(fname);
     }
@@ -177,6 +181,8 @@ var router = {};
     }
 
     NotFoundHandler = function(request, response) {
+
+    router.clearPrerunChain();
 
 	response.writeHead(500, {'Content-Type': 'text/html'});
 

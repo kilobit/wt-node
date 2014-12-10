@@ -18,31 +18,6 @@
 
 var logger = require("./logger");
 
-if(!Object.prototype.hasOwnProperty('create')) {
-    Object.defineProperty(Object.prototype, "create", {
-	enumerable: false,
-	value: function(o) {
-	    var F = function() {};
-	    F.prototype = o;
-	    return new F();
-	}
-    });
-}
-
-if(!Object.prototype.hasOwnProperty('extend')) {
-    Object.defineProperty(Object.prototype, "extend", {
-	enumerable: false,
-	value: function(from) {
-	    if(typeof from !== 'object') { return this; }
-	    for(var prop in from) {
-		this[prop] = from[prop];
-	    }
-
-	    return this;
-	}
-    });
-}
-
 function loadBody(request, callback) {
     
     var body = typeof(request.body) !== 'undefined' ? request.body : "";

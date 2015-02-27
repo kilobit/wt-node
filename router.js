@@ -100,6 +100,12 @@ var router = {};
 			request.wt.data = {};
 			return next();
 		}
+
+		if(request.headers['content-type'] != 'application/x-www-form-urlencoded') {
+			request.wt.data = {};
+			return next();
+		}
+
 		var postData = "";
 		request.setEncoding("utf8");
 

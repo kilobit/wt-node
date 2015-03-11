@@ -101,7 +101,7 @@ var router = {};
 			return next();
 		}
 
-		if(  request.headers['content-type'].indexOf('application/x-www-form-urlencoded') == -1) {
+		if( request.headers && request.headers['content-type'] && request.headers['content-type'].indexOf('application/x-www-form-urlencoded') == -1) {
 			request.wt.data = {};
 			return next();
 		}

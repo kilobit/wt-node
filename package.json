@@ -11,6 +11,6 @@
   "engines": {
     "node": ">=v0.5.4"
   },
-  "dependencies": { "jsdom": "*" },
+  "dependencies": { "jsdom": "4.0.2" },
   "devDependencies": {}
 }

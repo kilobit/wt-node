@@ -21,7 +21,8 @@ var url = require("url");
 // var logger = require("./logger");
 var qsparser = require('querystring');
 
-var Router = module.exports = function (options) {
+var Router = function (options) {
+	var that = this;
 	options = options || {};
 	this.routes = options.routes || {};
 	this.prerunChain = [
@@ -30,6 +31,46 @@ var Router = module.exports = function (options) {
 	];
 	this.default_handler = options.default_handler || NotFoundHandler;
 	this.error_handler = options.error_handler || ServerErrorHandler;
+
+
+	this.route = function(request,response){
+		var data = {};
+		// Parse the request uri
+		var uri = url.parse(request.url);
+
+		// Loop over the routes
+		for(var route in that.routes) {
+
+			// Check for a match.
+			var match = that.routes[route].re.exec(uri.pathname);
+			if(match) {
+				data.url = match;
+				// Get the method handler
+				var method = that.routes[route].handlers && that.routes[route].handlers[request.method.toUpperCase()];
+				if(method) {
+					// Pass control to the routed method.
+					if(that.prerunChain.length > 0) {
+						return that.runBefore(request, response, data, method);
+					} else {
+						return method(request, response, data);
+					}
+				}
+
+				// Try the default route handler
+				if(typeof(that.routes[route].default_handler) === 'function') {
+					that.routes[route].default_handler(request, response);
+				}
+			}
+		}
+
+		// Try the default handler
+		if(typeof(that.default_handler) === 'function') {
+			return that.default_handler(request, response);
+		}
+
+		// No match, no default handler.
+		that.error_handler(request,response);
+	}
 }
 
 Router.prototype.setDefaultRouteHandler = function(path, handler) {
@@ -64,6 +105,9 @@ Router.prototype.runBefore = function(request, response, data, routeHandler) {
 	var run_count = 0;
 	var that = this;
 	var next = function() {
+		// if ( incoming_data ) {
+		// 	data = incoming_data;
+		// }
 		if(that.prerunChain.length === run_count) {
 			return routeHandler(request, response, data);
 		}
@@ -104,45 +148,46 @@ Router.prototype.delete  = function(path, handler) { return this.setHandler('DEL
 Router.prototype.options = function(path, handler) { return this.setHandler('OPTIONS', path, handler); };
 Router.prototype.head    = function(path, handler) { return this.setHandler('HEAD', path, handler); };
 
-Router.prototype.route = function(request, response) {
-	var data = {};
-	var that = this;
-	// Parse the request uri
-	var uri = url.parse(request.url);
+// Router.prototype.route = function(request, response) {
+// 	var data = {};
+// 	var that = this;
+// 	console.log(this);
+// 	// Parse the request uri
+// 	var uri = url.parse(request.url);
 
-	// Loop over the routes
-	for(var route in that.routes) {
+// 	// Loop over the routes
+// 	for(var route in that.routes) {
 
-		// Check for a match.
-		var match = that.routes[route].re.exec(uri.pathname);
-		if(match) {
-			data.url = match;
-			// Get the method handler
-			var method = that.routes[route].handlers && that.routes[route].handlers[request.method.toUpperCase()];
-			if(method) {
-				// Pass control to the routed method.
-				if(that.prerunChain.length > 0) {
-					return that.runBefore(request, response, data, method);
-				} else {
-					return method(request, response, data);
-				}
-			}
+// 		// Check for a match.
+// 		var match = that.routes[route].re.exec(uri.pathname);
+// 		if(match) {
+// 			data.url = match;
+// 			// Get the method handler
+// 			var method = that.routes[route].handlers && that.routes[route].handlers[request.method.toUpperCase()];
+// 			if(method) {
+// 				// Pass control to the routed method.
+// 				if(that.prerunChain.length > 0) {
+// 					return that.runBefore(request, response, data, method);
+// 				} else {
+// 					return method(request, response, data);
+// 				}
+// 			}
 
-			// Try the default route handler
-			if(typeof(that.routes[route].default_handler) === 'function') {
-				that.routes[route].default_handler(request, response);
-			}
-		}
-	}
+// 			// Try the default route handler
+// 			if(typeof(that.routes[route].default_handler) === 'function') {
+// 				that.routes[route].default_handler(request, response);
+// 			}
+// 		}
+// 	}
 
-	// Try the default handler
-	if(typeof(that.default_handler) === 'function') {
-		return that.default_handler(request, response);
-	}
+// 	// Try the default handler
+// 	if(typeof(that.default_handler) === 'function') {
+// 		return that.default_handler(request, response);
+// 	}
 
-	// No match, no default handler.
-	this.error_handler(request,response);
-};
+// 	// No match, no default handler.
+// 	ServerErrorHandler(request,response);
+// };
 
 var NotFoundHandler = function(request, response) {
 
@@ -174,7 +219,11 @@ var parseGetParameters = function(request, response, data, next) {
 	if(!data.get) {
 		data.get = {};
 	}
+	if(!request.wt) {
+		request.wt = {};
+	}
 
+	request.wt.query = params;
 	data.get = params;
 	return next();
 };
@@ -183,7 +232,11 @@ var parsePostData = function(request, response, data, next) {
 	if (!data) {
 		data = {};
 	}
+	if (!request.wt) {
+		request.wt = {};
+	}
 
+	request.wt.data = {};
 	data.post = {};
 	if (request.method.toUpperCase() !== "POST") {
 		return next();
@@ -203,16 +256,19 @@ var parsePostData = function(request, response, data, next) {
 	request.on("end", function() {
 		// Pass control to the routed method.
 		if (postData.match(/<(.*)>(.*)<\/(.*)>/)) {
+			request.wt.data = postData;
 			data.post = postData;
 			return next();
 			// return routeMethod(request, response, postData);
 		}
 		var parsed_post_data = qsparser.parse(postData);
+		request.wt.data = parsed_post_data;
 		data.post = parsed_post_data;
 		return next();
 	});
 };
 
+module.exports = Router;
 /*
 (function() {
 

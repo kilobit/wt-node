@@ -1,3 +1,4 @@
+"use strict";
 /* Copyright (C) 2011 Kilobit */
 
 /*   WT is free software: you can redistribute it and/or modify
@@ -17,15 +18,207 @@
 // router.js
 
 var url = require("url");
-var logger = require("./logger");
+// var logger = require("./logger");
 var qsparser = require('querystring');
 
-var router = {};
+var Router = module.exports = function (options) {
+	options = options || {};
+	this.routes = options.routes || {};
+	this.prerunChain = [
+		parseGetParameters,
+		parsePostData
+	];
+	this.default_handler = options.default_handler || NotFoundHandler;
+	this.error_handler = options.error_handler || ServerErrorHandler;
+}
 
+Router.prototype.setDefaultRouteHandler = function(path, handler) {
+
+	// Get existing route entries or create new ones.
+	var route = (this.routes[path]) ? this.routes[path] : {};
+
+	// Set the default handler on the route.
+	route.default_handler = handler;
+
+	// Add the route to the routes.
+	this.routes[path] = route;
+}
+
+Router.prototype.setRoutes = function(routes) {
+	this.routes = routes;
+}
+
+Router.prototype.clearPrerunChain = function() {
+	this.prerunChain = [];
+};
+
+Router.prototype.addPreHandling = function(fn) {
+	this.prerunChain.push(fn);
+}
+
+Router.prototype.setDefaultHandler = function(fn) {
+	this.default_handler = fn;
+};
+
+Router.prototype.runBefore = function(request, response, data, routeHandler) {
+	var run_count = 0;
+	var that = this;
+	var next = function() {
+		if(that.prerunChain.length === run_count) {
+			return routeHandler(request, response, data);
+		}
+
+		var now = that.prerunChain[run_count];
+		run_count++;
+		// var now = router.prerunChain.shift();
+		if( typeof now != 'function' ) {
+			throw new Error(now.toString() + " is not a function!");
+		}
+
+		return now(request, response, data, next);
+	};
+	next();
+};
+
+Router.prototype.setHandler = function(method, path, handler) {
+
+	// Get existing route entries or create new ones.
+	var route = (this.routes[path]) ? this.routes[path] : {};
+	var handlers = (route.handlers) ? route.handlers : {};
+
+	// Pre Compile the regex
+	if(typeof(route.re === 'undefined')) {route.re = new RegExp(path);}
+
+	// Set the handler on the route
+	handlers[method.toUpperCase()] = handler;
+	route.handlers = handlers;
+
+	// Add the route to the routes.
+	this.routes[path] = route;
+};
+
+Router.prototype.get     = function(path, handler) { return this.setHandler('GET', path, handler); };
+Router.prototype.post    = function(path, handler) { return this.setHandler('POST', path, handler); };
+Router.prototype.put     = function(path, handler) { return this.setHandler('PUT', path, handler); };
+Router.prototype.delete  = function(path, handler) { return this.setHandler('DELETE', path, handler); };
+Router.prototype.options = function(path, handler) { return this.setHandler('OPTIONS', path, handler); };
+Router.prototype.head    = function(path, handler) { return this.setHandler('HEAD', path, handler); };
+
+Router.prototype.route = function(request, response) {
+	var data = {};
+	var that = this;
+	// Parse the request uri
+	var uri = url.parse(request.url);
+
+	// Loop over the routes
+	for(var route in that.routes) {
+
+		// Check for a match.
+		var match = that.routes[route].re.exec(uri.pathname);
+		if(match) {
+			data.url = match;
+			// Get the method handler
+			var method = that.routes[route].handlers && that.routes[route].handlers[request.method.toUpperCase()];
+			if(method) {
+				// Pass control to the routed method.
+				if(that.prerunChain.length > 0) {
+					return that.runBefore(request, response, data, method);
+				} else {
+					return method(request, response, data);
+				}
+			}
+
+			// Try the default route handler
+			if(typeof(that.routes[route].default_handler) === 'function') {
+				that.routes[route].default_handler(request, response);
+			}
+		}
+	}
+
+	// Try the default handler
+	if(typeof(that.default_handler) === 'function') {
+		return that.default_handler(request, response);
+	}
+
+	// No match, no default handler.
+	this.error_handler(request,response);
+};
+
+var NotFoundHandler = function(request, response) {
+
+	response.writeHead(404, {'Content-Type': 'text/html'});
+
+	response.write("<html>\n\t<head>\n\t<title>404 Not Found</title>\n\t</head>\n");
+	response.write("<body><h1>Not Found</h1><p>The resource you requested, " + request.url + ", was not found on this server.</p></body>");
+	response.write("</html>");
+	response.end();
+}
+
+var ServerErrorHandler = function(request, response) {
+
+	response.writeHead(500, {'Content-Type': 'text/html'});
+
+	response.write("<html>\n\t<head>\n\t<title>500 Internal Server Error</title>\n\t</head>\n");
+	response.write("<body><h1>Server Error</h1><p>The server has encountered an error processing this request.</p></body>");
+	response.write("</html>");
+	response.end();
+};
+
+var parseGetParameters = function(request, response, data, next) {
+	var params = {};
+	// add get params
+	request.url.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m, key, value) {
+		params[key] = value;
+	});
+
+	if(!data.get) {
+		data.get = {};
+	}
+
+	data.get = params;
+	return next();
+};
+
+var parsePostData = function(request, response, data, next) {
+	if (!data) {
+		data = {};
+	}
+
+	data.post = {};
+	if (request.method.toUpperCase() !== "POST") {
+		return next();
+	}
+
+	if( request.headers && request.headers['content-type'] && request.headers['content-type'].indexOf('application/x-www-form-urlencoded') == -1) {
+		return next();
+	}
+
+	var postData = "";
+	request.setEncoding("utf8");
+
+	request.on("data", function(data) {
+		postData += data;
+	});
+
+	request.on("end", function() {
+		// Pass control to the routed method.
+		if (postData.match(/<(.*)>(.*)<\/(.*)>/)) {
+			data.post = postData;
+			return next();
+			// return routeMethod(request, response, postData);
+		}
+		var parsed_post_data = qsparser.parse(postData);
+		data.post = parsed_post_data;
+		return next();
+	});
+};
+
+/*
 (function() {
 
 	router.routes = {};
 	router.prerunChain = [];
+	router.default_handler;
 
 	router.setDefaultHandler = function(handler) {
 		router.default_handler = handler;
@@ -45,7 +238,9 @@ var router = {};
 
 
 	router.clearPrerunChain = function () {
-		router.prerunChain = [];
+		console.log(router.prerunChain);
+		return router.prerunChain = [];
+		console.log(router.prerunChain);
 	}
 	router.addPreHandling = function(fname) {
 		router.prerunChain.push(fname);
@@ -142,15 +337,16 @@ var router = {};
 	};
 
 	// Convenience methods for setting handlers.
-	router.get		= function(path, handler) { return router.setHandler('GET', path, handler); }
-	router.post		= function(path, handler, data) { return router.setHandler('POST', path, handler); }
-	router.put		= function(path, handler) { return router.setHandler('PUT', path, handler); }
-	router.delete	= function(path, handler) { return router.setHandler('DELETE', path, handler); }
-	router.options	= function(path, handler) { return router.setHandler('OPTIONS', path, handler); }
-	router.head		= function(path, handler) { return router.setHandler('HEAD', path, handler); }
+	router.get		    = function(path, handler) { return router.setHandler('GET', path, handler); }
+	router.post		   = function(path, handler, data) { return router.setHandler('POST', path, handler); }
+	router.put		    = function(path, handler) { return router.setHandler('PUT', path, handler); }
+	router.delete	  = function(path, handler) { return router.setHandler('DELETE', path, handler); }
+	router.options	 = function(path, handler) { return router.setHandler('OPTIONS', path, handler); }
+	router.head		   = function(path, handler) { return router.setHandler('HEAD', path, handler); }
 
 	// Route requests based on the routes list.
-	router.route = function(request, response, data) {
+	router.route = function(request, response) {
+		var data = {};
 		// Parse the request uri
 		uri = url.parse(request.url);
 
@@ -160,6 +356,7 @@ var router = {};
 			// Check for a match.
 			match = router.routes[route].re.exec(uri.pathname);
 			if(match) {
+				data['flow'] = match[0].split('/');
 				// Get the method handler
 				method = router.routes[route].handlers && router.routes[route].handlers[request.method.toUpperCase()];
 				if(method) {
@@ -210,5 +407,5 @@ for(var name in router) {
 	exports[name] = router[name];
 }
 
-
+*/
 

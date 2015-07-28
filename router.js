@@ -27,7 +27,8 @@ var Router = function (options) {
 	this.routes = options.routes || {};
 	this.prerunChain = [
 		parseGetParameters,
-		parsePostData
+		parsePostData,
+		parseCookies
 	];
 	this.default_handler = options.default_handler || NotFoundHandler;
 	this.error_handler = options.error_handler || ServerErrorHandler;
@@ -266,6 +267,23 @@ var parsePostData = function(request, response, data, next) {
 		data.post = parsed_post_data;
 		return next();
 	});
+};
+
+var parseCookies = function(request, response, data, next) {
+	data.cookies = {};
+
+	if(!request.headers || !request.headers.cookie) {
+		return next();
+	}
+
+    var cookies_array = request.headers.cookie.split(";");
+
+    cookies_array.forEach(function( cookie ) {
+        var parts = cookie.split('=');
+        data.cookies[parts.shift().trim()] = decodeURI(parts.join('='));
+    });
+
+	return next();
 };
 
 module.exports = Router;

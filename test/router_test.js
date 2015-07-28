@@ -224,4 +224,64 @@ suite("Router", function() {
 		assert.equal(router.default_handler,defaultHandler,"Expected the default_handler to be the set function.");
 	});
 
+	test("parseCookies - no cookies", function (done) {
+		var route = "/test/cookies";
+		var mock_req = {
+			url: route,
+			method: 'get',
+			headers: {}
+		};
+
+		var handler = function(req, res, data) {
+			assert.isObject(data.cookies, "Expected data to include a cookies object");
+			assert.deepEqual(data.cookies, {}, "Expected data.cookies to be an empty object");
+			done();
+		};
+
+		router.get(route, handler);
+		router.route(mock_req, {});
+	});
+	test("parseCookies - no headers", function (done) {
+		var route = "/test/cookies";
+		var mock_req = {
+			url: route,
+			method: 'get'
+		};
+
+		var handler = function(req, res, data) {
+			assert.isObject(data.cookies, "Expected data to include a cookies object");
+			assert.deepEqual(data.cookies, {}, "Expected data.cookies to be an empty object");
+			done();
+		};
+
+		router.get(route, handler);
+		router.route(mock_req, {});
+	})
+
+	test("parseCookies - success", function (done) {
+		var route = "/test/cookies";
+		var mock_req = {
+			url: route,
+			method: 'get',
+			headers: {
+				'cookie': 's_fid=70B3BE8552B5E41C-34303384468BE72E; localePreference={"Province":"AB","ProvinceFullName":"Alberta","City":"CALGARY","IsUnknown":false}; location={CGY}!{11}!{}!{CALGARY}!{AB}!{}!{}!{}!{}!{}!{204.209.209 .129}!{}!{}!{Shaw Communications}; service={phone}!{internet1000}!{allDigital}; utag_main=_st:1438011373463$ses_id :1438010119456%3Bexp-session; s_nr=1438009573367-Repeat; s_vnum=1869672822487%26vn%3D3; __utma=201145457 .965732408.1437672823.1438005611.1438009574.3; __utmz=201145457.1438009574.3.3.utmcsr=generated.wifi .shaw.ca|utmccn=(referral)|utmcmd=referral|utmcct=/B284A6FC45/; s_cc=true; s_sq=%5B%5BB%5D%5D; txGUID =70d71e71-99a2-4b2f-a367-49ba607d2c28'
+			}
+		};
+
+		var handler = function(req, res, data) {
+			assert.isObject(data.cookies, "Expected data to include a cookies object");
+			assert.equal(data.cookies.s_fid, "70B3BE8552B5E41C-34303384468BE72E", "Expected data.cookies.s_fid in cookies object");
+			assert.equal(data.cookies.localePreference, '{"Province":"AB","ProvinceFullName":"Alberta","City":"CALGARY","IsUnknown":false}', "Expected data.cookies.localePreference in cookies object");
+			assert.equal(data.cookies.location, "{CGY}!{11}!{}!{CALGARY}!{AB}!{}!{}!{}!{}!{}!{204.209.209 .129}!{}!{}!{Shaw Communications}", "Expected data.cookies.location in cookies object");
+			assert.equal(data.cookies.service, "{phone}!{internet1000}!{allDigital}", "Expected data.cookies.service in cookies object");
+			assert.equal(data.cookies.utag_main, "_st:1438011373463$ses_id :1438010119456%3Bexp-session", "Expected data.cookies.utag_main in cookies object");
+			assert.equal(data.cookies.__utma, "201145457 .965732408.1437672823.1438005611.1438009574.3", "Expected data.cookies.__utma in cookies object");
+			assert.equal(data.cookies.txGUID, "70d71e71-99a2-4b2f-a367-49ba607d2c28", "Expected data.cookies.txGUID in cookies object");
+			done();
+		};
+
+		router.get(route, handler);
+		router.route(mock_req, {});
+	});
+
 });

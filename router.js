@@ -197,7 +197,7 @@ var parsePostData = function(request, response, data, next) {
 
 	request.wt.data = {};
 	data.post = {};
-	if (request.method.toUpperCase() !== "POST") {
+	if (request.method.toUpperCase() !== "POST" && request.method.toUpperCase() !== "PUT") {
 		return next();
 	}
 

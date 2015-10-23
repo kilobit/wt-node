@@ -78,7 +78,8 @@ suite("Router", function() {
 		var url_obj = {
 			url: route,
 			method: 'post',
-			setEncoding: function(){}
+			setEncoding: function(){},
+			on: function(event_name, action){ action(); }
 		};
 		var handler = function() {
 			done();
@@ -92,7 +93,9 @@ suite("Router", function() {
 		var route = '/test';
 		var url_obj = {
 			url: route,
-			method: 'put'
+			method: 'put',
+			setEncoding: function(){},
+			on: function(event_name, action){ action(); }
 		};
 		var handler = function() {
 			done();

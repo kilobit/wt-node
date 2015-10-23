@@ -18,7 +18,7 @@
 
 var url = require("url");
 // var logger = require("./logger");
-var qsparser = require('querystring');
+var qsparser = require("querystring");
 
 var Router = function (options) {
 	var that = this;
@@ -188,6 +188,7 @@ var parseGetParameters = function(request, response, data, next) {
 };
 
 var parsePostData = function(request, response, data, next) {
+
 	if (!data) {
 		data = {};
 	}
@@ -201,8 +202,18 @@ var parsePostData = function(request, response, data, next) {
 		return next();
 	}
 
-	if( request.headers && request.headers['content-type'] && request.headers['content-type'].indexOf('application/x-www-form-urlencoded') == -1) {
-		return next();
+	var json_content = false;
+	var xml_content = false;
+	var form_content = false;
+
+	if( request.headers && request.headers["content-type"]) {
+		json_content = (request.headers["content-type"].indexOf("application/json") !== -1);
+		xml_content = (request.headers["content-type"].indexOf("text/xml") !== -1);
+		form_content = (request.headers["content-type"].indexOf("application/x-www-form-urlencoded") !== -1);
+
+		if(!form_content && !json_content) {
+			return next();
+		}
 	}
 
 	var postData = "";
@@ -213,16 +224,21 @@ var parsePostData = function(request, response, data, next) {
 	});
 
 	request.on("end", function() {
-		// Pass control to the routed method.
-		if (postData.match(/<(.*)>(.*)<\/(.*)>/)) {
+
+		if(json_content) {
+			try{
+				data.post = JSON.parse(postData);
+				request.wt.data = data.post;
+			} catch(e) {}
+
+		} else if (xml_content || postData.match(/<(.*)>(.*)<\/(.*)>/)) {
 			request.wt.data = postData;
 			data.post = postData;
-			return next();
-			// return routeMethod(request, response, postData);
+		} else {
+			data.post = qsparser.parse(postData);
+			request.wt.data = data.post;
 		}
-		var parsed_post_data = qsparser.parse(postData);
-		request.wt.data = parsed_post_data;
-		data.post = parsed_post_data;
+
 		return next();
 	});
 };
@@ -237,8 +253,8 @@ var parseCookies = function(request, response, data, next) {
     var cookies_array = request.headers.cookie.split(";");
 
     cookies_array.forEach(function( cookie ) {
-        var parts = cookie.split('=');
-        data.cookies[parts.shift().trim()] = decodeURI(parts.join('='));
+        var parts = cookie.split("=");
+        data.cookies[parts.shift().trim()] = decodeURI(parts.join("="));
     });
 
 	return next();

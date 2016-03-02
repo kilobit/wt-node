@@ -211,7 +211,7 @@ var parsePostData = function(request, response, data, next) {
 		xml_content = (request.headers["content-type"].indexOf("text/xml") !== -1);
 		form_content = (request.headers["content-type"].indexOf("application/x-www-form-urlencoded") !== -1);
 
-		if(!form_content && !json_content) {
+		if(!form_content && !json_content && !xml_content) {
 			return next();
 		}
 	}
